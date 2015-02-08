@@ -1,0 +1,96 @@
+#!/usr/bin/env python
+
+import os
+import re
+import csv
+import sys
+import signal
+import argparse
+
+
+# without this, we may encounter fields larger than can be read
+csv.field_size_limit(sys.maxsize)
+
+class Converter(object):
+
+    def __init__(self, cuts_path, truncate=False):
+        self.truncate = truncate
+        self.cuts = []
+        with open(cuts_path, "r") as cfp:
+            for line in cfp:
+                line = line.strip()
+                try:
+                    name, cut = re.split(r'\s+', line)
+                    self.cuts.append((name, int(cut)))
+                except TypeError:
+                    self.cuts.append((line, None))
+                except ValueError:
+                    self.cuts.append((line, None))
+
+    @property
+    def fields(self):
+        return [v[0] for v in self.cuts]
+
+    def process(self, fp):
+        if fp == "-":
+            fp = sys.stdin
+        elif isinstance(fp, basestring):
+            fp = open(fp, "r")
+        elif isinstance(fp, int):
+            fp = os.fdopen(fp, "r")
+
+        reader = csv.DictReader(fp)
+        for record in reader:
+            yield self.unsplit(record)
+
+    def unsplit(self, record):
+        values = []
+        start = 0
+        for name, end in self.cuts:
+
+            value = record.get(name)
+            if value is None:
+                value = ""
+
+            if end is None:
+                values.append(values)
+            else:
+                length = end - start
+                if len(value) > length:
+                    if self.truncate:
+                        value = value[:length]
+                    else:
+                        raise Exception("value '{}' for field '{}' exceeds "
+                                        "size (max {}, value length {})"
+                                        .format(value, name, length, len(value)))
+
+                value = ("{:<" + str(length) + "}").format(value)
+                values.append(value)
+
+            start = end
+
+        return "".join(values)
+
+
+if __name__ == "__main__":
+
+    # ignore pipe errors using head, etc
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL) 
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--truncate", help="truncate values that are too long",
+                        action="store_true", default=False)
+    parser.add_argument("cuts", help="path to the cuts file")
+    parser.add_argument("files", nargs="*", help="files to process")
+
+    args = parser.parse_args()
+
+    if not args.files:
+        args.files = ["-"]
+
+    converter = Converter(args.cuts, truncate=args.truncate)
+
+    for file in args.files:
+        for line in converter.process(file):
+            sys.stdout.write(line + "\n")
+
