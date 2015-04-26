@@ -53,7 +53,7 @@ class Converter(object):
                 value = ""
 
             if end is None:
-                values.append(values)
+                values.append(value)
             else:
                 length = end - start
                 if len(value) > length:
