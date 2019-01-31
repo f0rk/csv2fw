@@ -181,7 +181,7 @@ class Cut(object):
                     value = value_digits.zfill(length)
                 else:
                     value_decimals = value_decimals[:decimals].ljust(decimals, "0")
-                    value = value_digits + value_digits
+                    value = value_digits + value_decimals
                     value = value.zfill(length)
                 return value
 
@@ -203,7 +203,7 @@ class Cut(object):
                     value = value_digits.zfill(length)
                 else:
                     value_decimals = value_decimals[:decimals].ljust(decimals, "0")
-                    value = value_digits + value_digits
+                    value = value_digits + value_decimals
                     value = value.zfill(length)
                 return value
 
@@ -225,7 +225,7 @@ class Cut(object):
                     value = value_digits.zfill(length)
                 else:
                     value_decimals = value_decimals[:decimals].ljust(decimals, "0")
-                    value = value_digits + value_digits
+                    value = value_digits + value_decimals
                     value = value.zfill(length)
                 return value
 
@@ -416,7 +416,15 @@ class Converter(object):
 
             length = cut.end - start
 
-            value = cut.serialize(value, length)
+            try:
+                value = cut.serialize(value, length)
+            except:
+                sys.stderr.write(
+                    "an error occurred serializing field {}:"
+                    .format(cut.name)
+                )
+                sys.stderr.flush()
+                raise
 
             if len(value) > length:
                 if self.truncate:
